@@ -40,9 +40,14 @@ export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
 });
 export const premiumProcedure = (entity: "meetings" | "agents") =>
   protectedProcedure.use(async ({ ctx, next }) => {
-    const customer = await polarClient.customers.getStateExternal({
-      externalId: ctx.auth.user.id,
-    });
+    let customer: { activeSubscriptions: any[] } = { activeSubscriptions: [] };
+    try {
+      customer = await polarClient.customers.getStateExternal({
+        externalId: ctx.auth.user.id,
+      });
+    } catch (e) {
+      console.warn("Polar API failed. Falling back to free tier. Did you set POLAR_ACCESS_TOKEN?");
+    }
 
     const [userMeetings] = await db
       .select({

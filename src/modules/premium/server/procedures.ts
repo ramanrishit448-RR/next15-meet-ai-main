@@ -36,9 +36,14 @@ export const premiumRouter = createTRPCRouter({
     return products.result.items;
   }),
   getFreeUsage: protectedProcedure.query(async ({ ctx }) => {
-    const customer = await polarClient.customers.getStateExternal({
-      externalId: ctx.auth.user.id,
-    });
+    let customer: { activeSubscriptions: any[] } = { activeSubscriptions: [] };
+    try {
+      customer = await polarClient.customers.getStateExternal({
+        externalId: ctx.auth.user.id,
+      });
+    } catch {
+      // Ignore polar error, fallback to free tier
+    }
 
     const subscription = customer.activeSubscriptions[0];
 

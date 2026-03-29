@@ -18,7 +18,16 @@ import { inngest } from "@/inngest/client";
 import { generateAvatarUri } from "@/lib/avatar";
 import { streamChat } from "@/lib/stream-chat";
 
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+let _openaiClient: OpenAI | null = null;
+function getOpenAiClient(): OpenAI {
+  if (_openaiClient) return _openaiClient;
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set.");
+  }
+  _openaiClient = new OpenAI({ apiKey });
+  return _openaiClient;
+}
 
 function verifySignatureWithSDK(body: string, signature: string): boolean {
   return streamVideo.verifyWebhook(body, signature);
@@ -92,15 +101,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    const call = streamVideo.video.call("default", meetingId);
-    const realtimeClient = await streamVideo.video.connectOpenAi({
-      call,
-      openAiApiKey: process.env.OPENAI_API_KEY!,
-      agentUserId: existingAgent.id,
-    });
+    const openAiApiKey = process.env.OPENAI_API_KEY;
+    if (!openAiApiKey) {
+      return NextResponse.json(
+        { error: "OPENAI_API_KEY is not set" },
+        { status: 500 }
+      );
+    }
 
-    realtimeClient.updateSession({
-      instructions: existingAgent.instructions,
+    const call = streamVideo.video.call("default", meetingId);
+    
+    // Run in background so Stream webhook doesn't timeout and trigger duplicates
+    streamVideo.video.connectOpenAi({
+      call,
+      openAiApiKey,
+      agentUserId: existingAgent.id,
+    })
+    .then((realtimeClient) => {
+      realtimeClient.updateSession({
+        instructions: existingAgent.instructions,
+      });
+    })
+    .catch((error) => {
+      console.error("[OpenAI Agent Error]:", error);
     });
   } else if (eventType === "call.session_participant_left") {
     const event = payload as CallSessionParticipantLeftEvent;
@@ -224,7 +247,7 @@ export async function POST(req: NextRequest) {
           content: message.text || "",
         }));
 
-      const GPTResponse = await openaiClient.chat.completions.create({
+      const GPTResponse = await getOpenAiClient().chat.completions.create({
         messages: [
           { role: "system", content: instructions },
           ...previousMessages,

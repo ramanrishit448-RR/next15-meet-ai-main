@@ -1,43 +1,17 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { polar, checkout, portal } from "@polar-sh/better-auth";
-
-import { db } from "@/db";
+// import { sentinel } from "@better-auth/infra";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "@/db/schema";
 
-import { polarClient } from "./polar";
+const db = drizzle(new Pool({ connectionString: process.env.DATABASE_URL }), {
+  schema,
+});
 
 export const auth = betterAuth({
-  plugins: [
-    polar({
-      client: polarClient,
-      createCustomerOnSignUp: true,
-      use: [
-        checkout({
-          authenticatedUsersOnly: true,
-          successUrl: "/upgrade",
-        }),
-        portal(),
-      ],
-    }),
-  ],
-  socialProviders: {
-    github: { 
-      clientId: process.env.GITHUB_CLIENT_ID as string, 
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string, 
-    },
-    google: { 
-      clientId: process.env.GOOGLE_CLIENT_ID as string, 
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string, 
-    }, 
-  },
-  emailAndPassword: {
-    enabled: true,
-  },
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: {
-      ...schema,
-    },
-  }),
+  database: drizzleAdapter(db, { provider: "pg", schema }),
+  baseURL: "http://localhost:3000/",
+  emailAndPassword: { enabled: true },
+  // plugins: [sentinel()], // Uncomment this when you add BETTER_AUTH_API_KEY
 });

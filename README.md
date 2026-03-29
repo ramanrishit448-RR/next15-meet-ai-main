@@ -34,11 +34,23 @@ AI-powered video call application with real-time agents, meeting summaries, and 
 # Install dependencies (use --legacy-peer-deps for React 19 compatibility)
 npm install --legacy-peer-deps
 
+# Copy env template and fill required values
+cp .env.example .env.local
+
 # Start development servers
 npm run dev          # Start Next.js development server
 npm run dev:webhook  # Start webhook server (requires ngrok static domain in package.json)
 npx inngest-cli@latest dev  # Start Inngest development server
 ```
+
+## Environment Variables
+
+Login/auth requires **at least**:
+
+- `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
+
+Copy `.env.example` to `.env.local` and fill out the values.
 
 ## Additional Commands
 
