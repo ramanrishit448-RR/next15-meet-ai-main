@@ -2,8 +2,6 @@
 
 Meet AI is an intelligent, AI-powered video conferencing application that lets users create customized AI Agents to join their video calls in real-time. It seamlessly integrates real-time video, autonomous voice agents, automated transcriptions, post-meeting summaries, and a chat interface to talk to your agent *after* the meeting ends.
 
-Created by [CodeWithAntonio](https://codewithantonio.com).
-
 ## 🚀 Key Features
 
 - **Real-time Video Calls:** High-quality, low-latency video and audio rooms.
