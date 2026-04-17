@@ -11,6 +11,9 @@
     "db:studio": "drizzle-kit studio",
     "dev:webhook": "ngrok http --url=[NGROK_STATIC_DOMAIN] 3000"
   },
+  "overrides": {
+    "zod": "^3.25.7"
+  },
   "dependencies": {
     "@better-auth/core": "^1.5.6",
     "@better-auth/infra": "^0.1.13",
