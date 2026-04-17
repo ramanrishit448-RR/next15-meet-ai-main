@@ -40,12 +40,13 @@ export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
 });
 export const premiumProcedure = (entity: "meetings" | "agents") =>
   protectedProcedure.use(async ({ ctx, next }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let customer: { activeSubscriptions: any[] } = { activeSubscriptions: [] };
     try {
       customer = await polarClient.customers.getStateExternal({
         externalId: ctx.auth.user.id,
       });
-    } catch (e) {
+    } catch {
       console.warn("Polar API failed. Falling back to free tier. Did you set POLAR_ACCESS_TOKEN?");
     }
 
