@@ -31,7 +31,7 @@ function getOpenAiClient(): OpenAI {
 
 function verifySignatureWithSDK(body: string, signature: string): boolean {
   return streamVideo.verifyWebhook(body, signature);
-};
+}
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-signature");
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (!signature || !apiKey) {
     return NextResponse.json(
       { error: "Missing signature or API key" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
           not(eq(meetings.status, "active")),
           not(eq(meetings.status, "cancelled")),
           not(eq(meetings.status, "processing")),
-        )
+        ),
       );
 
     if (!existingMeeting) {
@@ -101,30 +101,60 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
+    if (
+      !existingAgent.instructions ||
+      existingAgent.instructions.trim() === ""
+    ) {
+      return NextResponse.json(
+        { error: "Agent instructions are empty" },
+        { status: 400 },
+      );
+    }
+
     const openAiApiKey = process.env.OPENAI_API_KEY;
     if (!openAiApiKey) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY is not set" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     const call = streamVideo.video.call("default", meetingId);
-    
+
     // Run in background so Stream webhook doesn't timeout and trigger duplicates
-    streamVideo.video.connectOpenAi({
-      call,
-      openAiApiKey,
-      agentUserId: existingAgent.id,
-    })
-    .then((realtimeClient) => {
-      realtimeClient.updateSession({
-        instructions: existingAgent.instructions,
+    streamVideo.video
+      .connectOpenAi({
+        call,
+        openAiApiKey,
+        agentUserId: existingAgent.id,
+      })
+      .then((realtimeClient) => {
+        realtimeClient.updateSession({
+          model: "gpt-4o-realtime-preview-2024-12-26",
+          instructions: existingAgent.instructions,
+          voice: "sage",
+        });
+      })
+      .catch((error) => {
+        console.error(
+          "[OpenAI Agent Error]:",
+          JSON.stringify(
+            {
+              agentId: existingAgent.id,
+              meetingId,
+              hasInstructions: !!existingAgent.instructions,
+              instructionsLength: existingAgent.instructions?.length,
+              error: error instanceof Error ? error.message : error,
+              errorType: error?.type,
+              errorCode: error?.error?.code,
+            },
+            null,
+            2,
+          ),
+        );
       });
-    })
-    .catch((error) => {
-      console.error("[OpenAI Agent Error]:", error);
-    });
+
+    return NextResponse.json({ status: "ok" });
   } else if (eventType === "call.session_participant_left") {
     const event = payload as CallSessionParticipantLeftEvent;
     const meetingId = event.call_cid.split(":")[1]; // call_cid is formatted as "type:id"
@@ -133,8 +163,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing meetingId" }, { status: 400 });
     }
 
+    // Only end the call if the participant who left was a human user (not the AI agent).
+    // The participant field contains a CallParticipantResponse with user.id
+    const leavingUserId = event.participant?.user?.id;
+
+    if (leavingUserId) {
+      const [isAgent] = await db
+        .select()
+        .from(agents)
+        .where(eq(agents.id, leavingUserId));
+
+      // If the agent left, don't end the call — only end when a human user leaves
+      if (isAgent) {
+        return NextResponse.json({ status: "ok" });
+      }
+    }
+
+    // A human user left — end the call
     const call = streamVideo.video.call("default", meetingId);
-    await call.end();
+
+    try {
+      await call.end();
+    } catch (error) {
+      console.error("[Call End Error]:", error);
+      // Call may already have ended
+    }
   } else if (eventType === "call.session_ended") {
     const event = payload as CallEndedEvent;
     const meetingId = event.call.custom?.meetingId;
@@ -193,7 +246,7 @@ export async function POST(req: NextRequest) {
     if (!userId || !channelId || !text) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -261,7 +314,7 @@ export async function POST(req: NextRequest) {
       if (!GPTResponseText) {
         return NextResponse.json(
           { error: "No response from GPT" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 

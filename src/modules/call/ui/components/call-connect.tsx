@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Call,
@@ -22,7 +22,7 @@ interface Props {
   userId: string;
   userName: string;
   userImage: string;
-};
+}
 
 export const CallConnect = ({
   meetingId,
@@ -32,9 +32,16 @@ export const CallConnect = ({
   userImage,
 }: Props) => {
   const trpc = useTRPC();
-  const { mutateAsync: generateToken } = useMutation(
+  const { mutateAsync: generateTokenMutation } = useMutation(
     trpc.meetings.generateToken.mutationOptions(),
   );
+
+  // Use ref to keep a stable reference to the mutation function
+  // This prevents the client from being recreated on every render
+  const mutationRef = useRef(generateTokenMutation);
+  useEffect(() => {
+    mutationRef.current = generateTokenMutation;
+  }, [generateTokenMutation]);
 
   const [client, setClient] = useState<StreamVideoClient>();
   useEffect(() => {
@@ -45,7 +52,7 @@ export const CallConnect = ({
         name: userName,
         image: userImage,
       },
-      tokenProvider: generateToken,
+      tokenProvider: () => mutationRef.current(),
     });
 
     setClient(_client);
@@ -54,24 +61,23 @@ export const CallConnect = ({
       _client.disconnectUser();
       setClient(undefined);
     };
-  }, [userId, userName, userImage, generateToken]);
+  }, [userId, userName, userImage]);
 
   const [call, setCall] = useState<Call>();
   useEffect(() => {
-      if (!client) return;
+    if (!client) return;
 
-      const _call = client.call("default", meetingId);
-      _call.camera.disable();
-      _call.microphone.disable();
-      setCall(_call);
+    const _call = client.call("default", meetingId);
+    _call.camera.disable();
+    _call.microphone.disable();
+    setCall(_call);
 
-      return () => {
-        if (_call.state.callingState !== CallingState.LEFT) {
-          _call.leave();
-          _call.endCall();
-          setCall(undefined);
-        }
-      };
+    return () => {
+      if (_call.state.callingState !== CallingState.LEFT) {
+        _call.leave();
+        setCall(undefined);
+      }
+    };
   }, [client, meetingId]);
 
   if (!client || !call) {
