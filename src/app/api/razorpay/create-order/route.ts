@@ -7,19 +7,36 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret || keyId === "rzp_test_placeholder") {
+      console.error("Razorpay keys missing in environment variables.");
+      return NextResponse.json(
+        {
+          error:
+            "Razorpay API keys missing. Please set NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your Vercel Environment Variables.",
+        },
+        { status: 500 }
+      );
+    }
+
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to upgrade your subscription." },
+        { status: 401 }
+      );
     }
 
     const { amount, currency = "INR", planId, planName } = await req.json();
 
     if (!amount || typeof amount !== "number") {
       return NextResponse.json(
-        { error: "Invalid amount" },
+        { error: "Invalid plan amount." },
         { status: 400 }
       );
     }
@@ -40,11 +57,14 @@ export async function POST(req: NextRequest) {
       amount: order.amount,
       currency: order.currency,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Razorpay create-order error:", error);
-    return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
-    );
+    const err = error as { error?: { description?: string }; message?: string };
+    const errorMessage =
+      err?.error?.description ||
+      err?.message ||
+      "Failed to create order with Razorpay.";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
