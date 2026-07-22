@@ -1,13 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-// import { sentinel } from "@better-auth/infra";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { db } from "@/db";
 import * as schema from "@/db/schema";
-
-const db = drizzle(new Pool({ connectionString: process.env.DATABASE_URL }), {
-  schema,
-});
 
 const trustedOrigins = [
   "https://meet-ai-main.vercel.app",
@@ -29,5 +23,4 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   trustedOrigins,
   emailAndPassword: { enabled: true },
-  // plugins: [sentinel()], // Uncomment this when you add BETTER_AUTH_API_KEY
 });

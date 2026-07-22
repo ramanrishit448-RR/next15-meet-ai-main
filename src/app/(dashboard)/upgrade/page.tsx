@@ -10,6 +10,8 @@ import {
   UpgradeViewLoading,
 } from "@/modules/premium/ui/views/upgrade-view";
 
+export const dynamic = "force-dynamic";
+
 const Page = async () => {
   const session = await auth.api.getSession({
     headers: await headers(),

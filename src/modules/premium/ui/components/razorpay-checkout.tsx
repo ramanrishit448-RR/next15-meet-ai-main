@@ -108,7 +108,7 @@ export const useRazorpayCheckout = ({
         key: razorpayKey,
         amount: orderAmount,
         currency,
-        name: "Meet.AI",
+        name: "Meet AI",
         description: `${planName} Plan — Monthly Subscription`,
         order_id: orderId,
         handler: async (response: RazorpayPaymentResponse) => {

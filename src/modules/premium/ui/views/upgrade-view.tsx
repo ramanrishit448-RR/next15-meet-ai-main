@@ -85,7 +85,7 @@ export const UpgradeView = () => {
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
           Upgrade your{" "}
           <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
-            Meet.AI
+            Meet AI
           </span>{" "}
           experience
         </h1>
