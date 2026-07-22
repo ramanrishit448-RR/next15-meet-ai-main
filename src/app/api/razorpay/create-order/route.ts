@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { razorpay } from "@/lib/razorpay";
 import { auth } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({

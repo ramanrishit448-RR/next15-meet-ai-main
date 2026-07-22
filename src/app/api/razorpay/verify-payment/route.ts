@@ -7,6 +7,9 @@ import { subscriptions } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { razorpay } from "@/lib/razorpay";
 
+export const dynamic = "force-dynamic";
+
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({
