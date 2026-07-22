@@ -77,6 +77,62 @@ User signs in  ──►  Create / Manage AI Agents  ──►  Launch Video Roo
 
 ---
 
+## 📁 Project Directory Structure
+
+```
+next15-meet-ai/
+├── src/
+│   ├── app/                         # Next.js App Router routes & layouts
+│   │   ├── (auth)/                  # Sign-in & Sign-up pages
+│   │   │   ├── sign-in/
+│   │   │   └── sign-up/
+│   │   ├── (dashboard)/             # Protected dashboard area
+│   │   │   ├── agents/              # AI Agents management views
+│   │   │   ├── meetings/            # Video meetings & transcripts
+│   │   │   ├── upgrade/             # Razorpay subscription page (Free/Pro/Ultimate)
+│   │   │   └── layout.tsx           # Dashboard layout (Sidebar & Navbar)
+│   │   ├── api/                     # Server-side API endpoints
+│   │   │   ├── auth/                # Better Auth API handler
+│   │   │   ├── inngest/             # Inngest background job endpoint
+│   │   │   ├── razorpay/            # Order creation & signature verification
+│   │   │   │   ├── create-order/
+│   │   │   │   └── verify-payment/
+│   │   │   ├── trpc/                # tRPC API router handler
+│   │   │   └── webhook/             # Stream Video & Chat webhook handlers
+│   │   ├── call/[meetingId]/        # Live video meeting call room
+│   │   ├── globals.css              # Tailwind CSS v4 & theme variables
+│   │   └── layout.tsx               # Root layout & global providers
+│   ├── components/                  # Reusable UI components & Shadcn primitives
+│   ├── db/                          # Neon Postgres connection & Drizzle ORM schema
+│   │   ├── index.ts                 # Neon Serverless HTTP DB connection
+│   │   └── schema.ts                # Drizzle schemas (users, agents, meetings, subscriptions)
+│   ├── inngest/                     # Inngest background functions & LLM summary jobs
+│   ├── lib/                         # External client SDK initializations
+│   │   ├── auth.ts                  # Better Auth server configuration
+│   │   ├── auth-client.ts           # Better Auth client configuration
+│   │   ├── razorpay.ts              # Razorpay SDK server instance
+│   │   ├── stream-chat.ts           # Stream Chat SDK client
+│   │   └── stream-video.ts          # Stream Video SDK client
+│   ├── modules/                     # Modular domain-driven feature modules
+│   │   ├── agents/                  # Agents UI components & tRPC procedures
+│   │   ├── auth/                    # Auth views & forms
+│   │   ├── call/                    # Video room UI & OpenAI voice connector
+│   │   ├── dashboard/               # Sidebar, navbar, user button & plan trial stats
+│   │   ├── meetings/                # Meetings UI components & tRPC procedures
+│   │   └── premium/                 # Pricing cards, Razorpay checkout hook & procedures
+│   └── trpc/                        # tRPC router setup & middleware
+│       ├── init.ts                  # Protected procedures & subscription limit checks
+│       ├── client.tsx               # tRPC React Query client
+│       └── server.tsx               # tRPC server caller
+├── public/                          # Static assets (logo, favicon)
+├── drizzle.config.ts                # Drizzle Kit migration configuration
+├── next.config.ts                   # Next.js configuration
+├── package.json                     # Project dependencies & scripts
+└── README.md                        # Project documentation
+```
+
+---
+
 ## 🔑 Environment Variables Setup (`.env`)
 
 When cloning this project, create a `.env` file in the root directory with the following variables:
