@@ -97,10 +97,15 @@ export const useRazorpayCheckout = ({
         throw new Error(err.error ?? "Failed to create order");
       }
 
-      const { orderId, amount: orderAmount, currency } = await orderRes.json();
+      const { orderId, amount: orderAmount, currency, keyId: serverKeyId } = await orderRes.json();
+
+      const razorpayKey = serverKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      if (!razorpayKey) {
+        throw new Error("Razorpay Key ID missing. Check server environment variables.");
+      }
 
       const options: RazorpayOptions = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        key: razorpayKey,
         amount: orderAmount,
         currency,
         name: "Meet.AI",

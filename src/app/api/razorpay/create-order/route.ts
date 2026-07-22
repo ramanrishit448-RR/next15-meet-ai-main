@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      keyId,
     });
   } catch (error: unknown) {
     console.error("Razorpay create-order error:", error);
