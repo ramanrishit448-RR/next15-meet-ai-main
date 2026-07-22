@@ -1,96 +1,162 @@
 # Meet AI 🤖
 
-Meet AI is an intelligent, AI-powered video conferencing application that lets users create customized AI Agents to join their video calls in real-time. It seamlessly integrates real-time video, autonomous voice agents, automated transcriptions, post-meeting summaries, and a chat interface to talk to your agent *after* the meeting ends.
-
-## 🚀 Key Features
-
-- **Real-time Video Calls:** High-quality, low-latency video and audio rooms.
-- **Custom Autonomous AI Agents:** Create customized bots (Sales, Support, HR, etc.) directly from the dashboard.
-- **Live Voice Interaction:** The AI Agent joins the call natively as a participant and speaks in real-time using OpenAI's Realtime Voice API.
-- **Automated Summaries & Transcripts:** Background jobs automatically process meeting recordings and transcripts to generate concise summaries.
-- **"Chat with your Meeting":** A post-meeting text chat interface where users can ask their Agent questions about what happened during the video call.
-- **Monetization & Limits:** Role-based access and usage limits enforced via a Premium subscription tier.
+**Meet AI** is an intelligent, AI-powered video conferencing platform that enables users to build custom autonomous AI Agents that join video calls in real-time. Powered by Next.js 15, Stream Video, OpenAI Realtime, Neon Serverless Postgres, and Razorpay Subscriptions.
 
 ---
 
-## 🏗️ System Architecture & Project Flow
+## 🌟 Key Features & Highlights
 
-The magic of Meet AI happens through a carefully orchestrated event-driven architecture relying on **Webhooks** and **Background Jobs**:
+- 🎥 **Real-Time Video Calls:** Low-latency video and audio meeting rooms powered by Stream Video SDK.
+- 🤖 **Custom AI Agents:** Create customized AI bots (Sales, Support, HR, Interviewer) with specific instructions and personalities.
+- 🎙️ **Live Voice Interaction:** AI Agents join the meeting natively as call participants and speak in real-time using OpenAI's Realtime Voice API (`gpt-4o-realtime-preview`).
+- 📝 **Automated Transcripts & Summaries:** Background processing jobs via **Inngest** automatically capture meeting transcripts, run LLM analysis, and generate structured summaries.
+- 💬 **"Chat with Your Meeting":** Post-meeting interactive chat powered by Stream Chat. Ask your Agent questions about key decisions, action items, or transcript details after the call ends.
+- 💳 **Razorpay Subscriptions (INR Billed):** Tiered subscription page built specifically for Indian market compatibility with **Free**, **Pro**, and **Ultimate** plans.
+- 🔒 **Tier Limits Enforcement:** tRPC middleware enforcing monthly meeting and agent limits per active subscription plan.
+- 🎨 **Modern Dark UI/UX:** Responsive design using Tailwind CSS, Shadcn UI, glassmorphism, dynamic progress bars, and custom pricing badges.
 
-1. **Authentication & Setup:** Users sign in securely using Better Auth. They can navigate the dashboard to create custom AI Agents. 
-2. **Joining a Meeting:** When a user creates and joins a meeting room, the frontend connects to **Stream Video**.
-3. **Agent Spawning (The Webhook Flow):** 
-   - Stream Video detects the room is active and fires a `call.session_started` webhook to the Next.js backend (`/api/webhook`).
-   - The backend securely passes the meeting ID and the Agent's system instructions to the `@stream-io/openai-realtime-api`.
-   - The AI Agent establishes a WebSocket connection with **OpenAI Realtime** and joins the Stream Call as a regular participant with voice capabilities.
-4. **Post-Meeting Processing (Inngest):**
-   - When the creator ends the call, Stream generates a recording and transcription, firing the `call.transcription_ready` webhook.
-   - The Next.js backend receives this event and triggers an **Inngest** background job.
-   - Inngest securely downloads the transcript in the background, feeds it to an LLM, and saves the formatted summary to the database.
-5. **Continuous Conversation:** 
-   - In the dashboard, users can open the chat for a past meeting. 
-   - Powered by **Stream Chat**, whenever a user sends a message, a `message.new` webhook is triggered.
-   - The backend intercepts this message, injects the meeting summary as context into a prompt, and responds to the user as the agent.
+---
+
+## 💳 Subscription Tiers & Pricing Model
+
+Meet AI includes a 3-tier subscription model powered natively by **Razorpay**:
+
+| Feature / Limit | Free Plan (₹0/mo) | Pro Plan (₹499/mo) | Ultimate Plan (₹999/mo) |
+| :--- | :---: | :---: | :---: |
+| **Monthly Meetings** | 3 meetings | **Unlimited** | **Unlimited** |
+| **AI Agents** | 1 agent | **5 agents** | **Unlimited** |
+| **AI Summaries** | Basic | Advanced | Advanced |
+| **Real-time Transcription** | Standard | Real-time | Real-time |
+| **Support** | Email | Priority | Dedicated Account Manager |
+| **Badge / Highlight** | Current Plan | **Most Popular** (Dark Green) | **Best Value** (Deep Purple) |
+
+---
+
+## 🏗️ Technical Architecture & Workflow
+
+```
+User signs in  ──►  Create / Manage AI Agents  ──►  Launch Video Room (Stream Video)
+                                                                 │
+                                                       Session Started Webhook
+                                                                 │
+                                                                 ▼
+                                                  OpenAI Realtime Voice Agent Joins Call
+                                                                 │
+                                                       Call Ended Webhook
+                                                                 │
+                                                                 ▼
+                                                Inngest Async Job: Summarize & Store Transcript
+                                                                 │
+                                                                 ▼
+                                                  Post-Meeting Chat (Stream Chat)
+```
+
+1. **Authentication:** Better Auth handles session management using a stateless Neon Serverless Postgres HTTP connection (preventing `ECONNRESET` drops).
+2. **Agent Webhook Trigger:** When a meeting starts, Stream Video fires a `call.session_started` webhook to `/api/webhook`. The backend spawns an OpenAI Realtime Voice WebSocket instance that joins the call as a participant.
+3. **Post-Call Processing:** When the call ends, Stream sends a transcript ready webhook, triggering an **Inngest** background worker to analyze the text and save summaries to the Neon Postgres database.
+4. **Razorpay Payments & Verification:**
+   - Client calls `/api/razorpay/create-order` to generate a Razorpay order server-side.
+   - Client opens the native Razorpay Checkout SDK modal.
+   - Upon payment, `/api/razorpay/verify-payment` verifies the HMAC-SHA256 signature server-side and upserts the active plan into the `subscriptions` Postgres table.
+   - UI automatically invalidates tRPC cache, instantly updating user limits and sidebar stats.
 
 ---
 
 ## 💻 Tech Stack
 
-- **Framework:** [Next.js 15](https://nextjs.org/) (App Router, Server Actions) & React 19
-- **Styling:** Tailwind CSS v4 & [Shadcn/UI](https://ui.shadcn.com/)
+- **Framework:** [Next.js 15](https://nextjs.org/) (App Router, Server Actions, React 19)
+- **Styling:** Tailwind CSS & [Shadcn UI](https://ui.shadcn.com/)
 - **Database:** [Neon Serverless PostgreSQL](https://neon.tech/)
 - **ORM:** [Drizzle ORM](https://orm.drizzle.team/)
-- **API/Data Fetching:** [tRPC](https://trpc.io/)
+- **API Layer:** [tRPC](https://trpc.io/) & React Query
 - **Authentication:** [Better Auth](https://better-auth.com/)
-- **Video & Chat:** [Stream Video React SDK](https://getstream.io/video/) & Stream Chat
+- **Video & Chat:** [Stream Video SDK](https://getstream.io/video/) & Stream Chat
+- **AI Engine:** [OpenAI Realtime Voice API](https://platform.openai.com/docs/guides/realtime) (`gpt-4o-realtime-preview`)
+- **Payments:** [Razorpay Node SDK](https://razorpay.com/)
 - **Background Jobs:** [Inngest](https://www.inngest.com/)
-- **AI Integration:** [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) (`gpt-4o-realtime-preview`)
-- **Billing:** [Polar.sh](https://polar.sh/)
 
 ---
 
-## 🛠️ Local Development Setup
+## 🔑 Environment Variables Setup (`.env`)
 
-### 1. Install Dependencies
-```bash
-# Use --legacy-peer-deps for React 19 compatibility
-npm install --legacy-peer-deps
+When cloning this project, create a `.env` file in the root directory with the following variables:
+
+```env
+## Core Database & Authentication
+DATABASE_URL="postgresql://user:password@ep-ep-name.us-east-1.aws.neon.tech/neondb?sslmode=require"
+BETTER_AUTH_SECRET="your_better_auth_secret_key"
+BETTER_AUTH_URL="http://localhost:3000"
+BETTER_AUTH_API_KEY="your_better_auth_api_key"
+
+## Stream API Credentials (Video & Chat)
+NEXT_PUBLIC_STREAM_VIDEO_API_KEY="your_stream_video_api_key"
+STREAM_VIDEO_SECRET_KEY="your_stream_video_secret_key"
+NEXT_PUBLIC_STREAM_CHAT_API_KEY="your_stream_chat_api_key"
+STREAM_CHAT_SECRET_KEY="your_stream_chat_secret_key"
+
+## OpenAI Credentials (Required for AI Voice & Summaries)
+OPENAI_API_KEY="sk-proj-your_openai_api_key"
+
+## Razorpay Integration (Required for Subscriptions)
+NEXT_PUBLIC_RAZORPAY_KEY_ID="rzp_test_your_razorpay_key_id"
+RAZORPAY_KEY_SECRET="your_razorpay_key_secret"
+
+## Application & Background Jobs
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+INNGEST_EVENT_KEY="sk-inn-your_inngest_event_key"
+INNGEST_BASE_URL="https://api.inngest.com"
 ```
 
-### 2. Environment Variables
-Copy the template and fill in your credentials from the respective services.
-```bash
-cp .env.example .env.local
-```
-**Required Accounts:**
-- **Neon:** PostgreSQL Database URL
-- **Stream:** Video & Chat API Keys
-- **OpenAI:** Paid Tier 1+ account required for the Realtime Voice model
-- **Polar:** API Token for premium account limits
-- **Better Auth:** Authentication secret
+---
 
-### 3. Database Setup
+## 🛠️ Local Installation & Setup
+
+### 1. Clone the Repository & Install Dependencies
 ```bash
-# Push schema securely to your Neon database
+git clone https://github.com/your-username/next15-meet-ai.git
+cd next15-meet-ai
+npm install
+```
+
+### 2. Configure Environment Variables
+Copy `.env.example` (or create `.env`) and add your API keys as documented in the section above.
+
+### 3. Push Database Schema
+Push the Drizzle ORM schema (including tables for users, sessions, agents, meetings, and subscriptions) to your Neon database:
+```bash
 npm run db:push
 ```
 
-### 4. Running the App (Webhooks Required)
-
-Because the AI Agent completely relies on receiving webhooks from Stream Video, your local server **must** be exposed to the internet via Ngrok.
-
-**Start the Next.js Server:**
+### 4. Run Local Development Server
 ```bash
 npm run dev
 ```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
-**Expose the server via Ngrok (In a new terminal):**
+### 5. Setup Webhook Tunneling (For AI Agent Voice & Webhooks)
+Because Stream Video sends webhooks when calls start, your local server must be accessible publicly:
 ```bash
 npx ngrok http 3000
 ```
-*Note: Copy the absolute public URL Ngrok generates (e.g., `https://xyz.ngrok-free.app`) and paste it into the **Webhooks** section of your Stream Video dashboard with the path `/api/webhook` appended (e.g., `https://xyz.ngrok-free.app/api/webhook`).*
+Copy the Ngrok HTTPS forwarding URL (e.g., `https://xyz.ngrok-free.app`) and configure it in your Stream Video Dashboard under **Webhooks** with `/api/webhook` appended (`https://xyz.ngrok-free.app/api/webhook`).
 
-**Start Inngest Background Jobs (Optional for summaries):**
+### 6. Run Inngest Background Worker (Optional for Summaries)
 ```bash
 npx inngest-cli@latest dev
 ```
+
+---
+
+## 🚀 Deploying to Vercel
+
+When deploying to Vercel:
+
+1. Import the repository in your Vercel Dashboard.
+2. Under **Project Settings ➔ Environment Variables**, add **ALL** environment variables listed in the `.env` section above (especially `NEXT_PUBLIC_RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`).
+3. Deploy!
+
+---
+
+## 📄 License
+
+This project is open-source under the [MIT License](LICENSE).
