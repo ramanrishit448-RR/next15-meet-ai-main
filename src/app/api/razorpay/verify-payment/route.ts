@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import crypto from "crypto";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
+import { auth } from "@/lib/auth";
+import { razorpay } from "@/lib/razorpay";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
+      planId,
+      planName,
     } = await req.json();
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -24,7 +40,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate the expected signature
+    // Generate expected signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", keySecret)
@@ -40,13 +56,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Payment is verified — here you would update the user's subscription in your DB
-    // For now, we return success and the client handles the UI state
+    // Attempt to fetch order to double check notes if planId wasn't passed directly
+    let targetPlanId = planId;
+    let targetPlanName = planName;
+
+    try {
+      const order = await razorpay.orders.fetch(razorpay_order_id);
+      if (order?.notes) {
+        if (!targetPlanId && order.notes.planId) targetPlanId = order.notes.planId;
+        if (!targetPlanName && order.notes.planName) targetPlanName = order.notes.planName;
+      }
+    } catch (e) {
+      console.warn("Could not fetch order from Razorpay SDK:", e);
+    }
+
+    const finalPlanId = targetPlanId || "pro";
+    const finalPlanName = targetPlanName || (finalPlanId === "ultimate" ? "Ultimate" : "Pro");
+    const userId = session.user.id;
+
+    // Upsert subscription into DB
+    const existing = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId));
+
+    if (existing.length > 0) {
+      await db
+        .update(subscriptions)
+        .set({
+          planId: finalPlanId,
+          planName: finalPlanName,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          status: "active",
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.userId, userId));
+    } else {
+      await db.insert(subscriptions).values({
+        userId,
+        planId: finalPlanId,
+        planName: finalPlanName,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        status: "active",
+      });
+    }
+
     return NextResponse.json({
       success: true,
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id,
-      message: "Payment verified successfully",
+      planId: finalPlanId,
+      planName: finalPlanName,
+      message: `Successfully upgraded to ${finalPlanName}!`,
     });
   } catch (error) {
     console.error("Razorpay verify-payment error:", error);

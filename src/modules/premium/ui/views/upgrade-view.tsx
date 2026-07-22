@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { SparklesIcon } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { authClient } from "@/lib/auth-client";
+import { useTRPC } from "@/trpc/client";
 import { PricingCard } from "../components/pricing-card";
 import { useRazorpayCheckout } from "../components/razorpay-checkout";
 import { SUBSCRIPTION_PLANS, type PlanId, type SubscriptionPlan } from "../../constants";
 
-// ─── Individual plan card with its own checkout hook ───────────────────────
 const PlanCard = ({
   plan,
   currentPlanId,
@@ -20,7 +20,7 @@ const PlanCard = ({
   currentPlanId: PlanId;
   userEmail?: string;
   userName?: string;
-  onSuccess: (planId: PlanId) => void;
+  onSuccess: () => void;
 }) => {
   const isCurrentPlan = plan.id === currentPlanId;
   const isFree = plan.price === 0;
@@ -31,10 +31,9 @@ const PlanCard = ({
     amount: plan.price,
     userEmail,
     userName,
-    onSuccess: () => onSuccess(plan.id),
+    onSuccess,
   });
 
-  let buttonText = plan.cta;
   const handleClick = () => {
     if (isCurrentPlan || isFree) return;
     openCheckout();
@@ -49,7 +48,7 @@ const PlanCard = ({
       priceSuffix={isFree ? "" : "/month"}
       features={plan.features}
       badge={plan.badge}
-      buttonText={buttonText}
+      buttonText={plan.cta}
       onClick={handleClick}
       isLoading={isLoading}
       isCurrentPlan={isCurrentPlan}
@@ -57,13 +56,23 @@ const PlanCard = ({
   );
 };
 
-// ─── Main upgrade view ──────────────────────────────────────────────────────
 export const UpgradeView = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
-  const [currentPlanId, setCurrentPlanId] = useState<PlanId>("free");
 
+  const { data: subscription } = useQuery(
+    trpc.premium.getCurrentSubscription.queryOptions()
+  );
+
+  const currentPlanId = (subscription?.planId as PlanId) || "free";
   const userName = session?.user?.name;
   const userEmail = session?.user?.email;
+
+  const handlePaymentSuccess = () => {
+    queryClient.invalidateQueries(trpc.premium.getCurrentSubscription.queryFilter());
+    queryClient.invalidateQueries(trpc.premium.getFreeUsage.queryFilter());
+  };
 
   return (
     <div className="flex-1 py-8 px-4 md:px-8 flex flex-col gap-y-10 overflow-y-auto">
@@ -88,7 +97,7 @@ export const UpgradeView = () => {
           <p className="text-sm text-muted-foreground">
             You are currently on the{" "}
             <span className="font-semibold text-foreground capitalize">
-              {currentPlanId}
+              {subscription?.planName || currentPlanId}
             </span>{" "}
             plan
           </p>
@@ -104,7 +113,7 @@ export const UpgradeView = () => {
             currentPlanId={currentPlanId}
             userEmail={userEmail ?? undefined}
             userName={userName ?? undefined}
-            onSuccess={(planId) => setCurrentPlanId(planId)}
+            onSuccess={handlePaymentSuccess}
           />
         ))}
       </div>

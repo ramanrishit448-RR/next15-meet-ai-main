@@ -1,66 +1,68 @@
-import { eq, count } from "drizzle-orm";
+import { eq, count, and } from "drizzle-orm";
 
 import { db } from "@/db";
-import { polarClient } from "@/lib/polar";
-import { agents, meetings } from "@/db/schema";
+import { agents, meetings, subscriptions } from "@/db/schema";
 import {
   createTRPCRouter,
   protectedProcedure,
 } from "@/trpc/init";
+import { SUBSCRIPTION_PLANS, MAX_FREE_AGENTS, MAX_FREE_MEETINGS, MAX_PRO_AGENTS } from "../constants";
 
 export const premiumRouter = createTRPCRouter({
   getCurrentSubscription: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const customer = await polarClient.customers.getStateExternal({
-        externalId: ctx.auth.user.id,
-      });
+      const [sub] = await db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, ctx.auth.user.id),
+            eq(subscriptions.status, "active")
+          )
+        );
 
-      const subscription = customer.activeSubscriptions[0];
-
-      if (!subscription) {
-        return null;
+      if (!sub) {
+        return {
+          planId: "free",
+          planName: "Free",
+          status: "active",
+        };
       }
 
-      const product = await polarClient.products.get({
-        id: subscription.productId,
-      });
-
-      return product;
+      return {
+        id: sub.id,
+        planId: sub.planId,
+        planName: sub.planName,
+        status: sub.status,
+        updatedAt: sub.updatedAt,
+      };
     } catch (error) {
-      console.error("Failed to fetch current subscription from Polar:", error);
-      return null;
+      console.error("Failed to fetch current subscription:", error);
+      return {
+        planId: "free",
+        planName: "Free",
+        status: "active",
+      };
     }
   }),
+
   getProducts: protectedProcedure.query(async () => {
-    try {
-      const products = await polarClient.products.list({
-        isArchived: false,
-        isRecurring: true,
-        sorting: ["price_amount"],
-      });
-
-      return products.result.items;
-    } catch (error) {
-      console.error("Failed to fetch products from Polar:", error);
-      return [];
-    }
+    return SUBSCRIPTION_PLANS;
   }),
+
   getFreeUsage: protectedProcedure.query(async ({ ctx }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let customer: { activeSubscriptions: any[] } = { activeSubscriptions: [] };
-    try {
-      customer = await polarClient.customers.getStateExternal({
-        externalId: ctx.auth.user.id,
-      });
-    } catch {
-      // Ignore polar error, fallback to free tier
-    }
+    const [sub] = await db
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, ctx.auth.user.id),
+          eq(subscriptions.status, "active")
+        )
+      );
 
-    const subscription = customer.activeSubscriptions[0];
-
-    if (subscription) {
-      return null;
-    }
+    const planId = sub?.planId || "free";
+    const planName = sub?.planName || (planId === "pro" ? "Pro" : planId === "ultimate" ? "Ultimate" : "Free");
 
     const [userMeetings] = await db
       .select({
@@ -77,8 +79,12 @@ export const premiumRouter = createTRPCRouter({
       .where(eq(agents.userId, ctx.auth.user.id));
 
     return {
+      planId,
+      planName,
       meetingCount: userMeetings.count,
+      maxMeetings: planId === "free" ? MAX_FREE_MEETINGS : null,
       agentCount: userAgents.count,
+      maxAgents: planId === "free" ? MAX_FREE_AGENTS : planId === "pro" ? MAX_PRO_AGENTS : null,
     };
   })
 });

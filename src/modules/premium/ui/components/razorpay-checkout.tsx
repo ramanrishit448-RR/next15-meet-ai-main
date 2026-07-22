@@ -111,7 +111,11 @@ export const useRazorpayCheckout = ({
             const verifyRes = await fetch("/api/razorpay/verify-payment", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(response),
+              body: JSON.stringify({
+                ...response,
+                planId,
+                planName,
+              }),
             });
 
             if (!verifyRes.ok) {

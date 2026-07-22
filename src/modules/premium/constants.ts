@@ -1,5 +1,7 @@
 export const MAX_FREE_MEETINGS = 3;
 export const MAX_FREE_AGENTS = 1;
+export const MAX_PRO_AGENTS = 5;
+
 
 export type PlanId = "free" | "pro" | "ultimate";
 
