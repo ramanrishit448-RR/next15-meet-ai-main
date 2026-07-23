@@ -18,9 +18,16 @@ if (process.env.NEXT_PUBLIC_APP_URL) {
   trustedOrigins.push(process.env.NEXT_PUBLIC_APP_URL);
 }
 
+const getBaseUrl = () => {
+  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+};
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: getBaseUrl(),
   trustedOrigins,
   emailAndPassword: { enabled: true },
   socialProviders: {
